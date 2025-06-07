@@ -97,12 +97,16 @@ fun ScannerApp() {
                         sackSorting = ""
                         osaLane = ""
                         error = "❌ Hub ID $hubId not found"
+                        scannedText = ""
+                        focusRequester.requestFocus()
                     }
                 } catch (e: Exception) {
                     hubName = ""
                     sackSorting = ""
                     osaLane = ""
                     error = "❌ Invalid JSON format"
+                    scannedText = ""
+                    focusRequester.requestFocus()
                 }
             },
             modifier = Modifier
