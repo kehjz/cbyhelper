@@ -31,9 +31,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 
-// Your Google Apps Script endpoint returning JSON array
 private const val SHEET_ENDPOINT =
-    "https://script.google.com/macros/s/AKfycbx9--CxDDuKGT4LX8pgNKXyKWDS4fqGS6cTvUUNeFv-3Z99LtOwDHoQBrIKin8Zx-kF/exec?pull_all=1"
+    "https://script.google.com/macros/s/AKfycbza1E7FT2x62m-THXFzRNddvQHIwlFzp3UTcC1OaQ2vhzAi0EjJYqMnHjDT8B__Uhum/exec"
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -121,7 +120,7 @@ fun HomeScreen(onSelect: (String) -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HomeTile("Shipment Scanning", Color(0xFF1B9E77)) { onSelect("Shipment Scanning") }
-            HomeTile("Coming soon",          Color(0xFFD95F02)) { onSelect("Coming soon") }
+            HomeTile("Coming soon", Color(0xFFD95F02)) { onSelect("Coming soon") }
         }
     }
 }
@@ -162,10 +161,13 @@ fun ScannerApp() {
     var osaLane by remember { mutableStateOf("") }
     var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
     var loading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
@@ -180,10 +182,12 @@ fun ScannerApp() {
                             hubName = name
                             sackSorting = sack
                             osaLane = lane
+                            errorMessage = ""
                         } ?: run {
                             hubName = ""
                             sackSorting = ""
                             osaLane = ""
+                            errorMessage = "❌ Invalid barcode"
                         }
                         CoroutineScope(Dispatchers.Main).launch {
                             delay(300)
@@ -195,15 +199,28 @@ fun ScannerApp() {
                         sackSorting = ""
                         osaLane = ""
                         scannedText = ""
+                        errorMessage = "❌ Invalid barcode"
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
             label = { Text(if (loading) "Loading... please wait" else "Scan shipment AWB label") },
             enabled = !loading
         )
+
+        if (errorMessage.isNotEmpty()) {
+            Text(
+                text = errorMessage,
+                color = Color.Red,
+                fontSize = 18.sp,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
 
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (loading) {
