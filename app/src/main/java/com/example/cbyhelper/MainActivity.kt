@@ -1,5 +1,6 @@
 package com.example.cbyhelper
 
+import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -13,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -26,6 +28,9 @@ import com.example.cbyhelper.ui.theme.CBYHelperTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
+import androidx.compose.runtime.SideEffect
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +46,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ScannerApp() {
     val context = LocalContext.current
+    val view = LocalView.current
+
+    SideEffect {
+        val window = (view.context as Activity).window
+        window.statusBarColor = Color.White.toArgb() // Background color
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true // Use dark icons
+    }
+
     var scannedText by remember { mutableStateOf("") }
     var hubName by remember { mutableStateOf("") }
     var sackSorting by remember { mutableStateOf("") }
