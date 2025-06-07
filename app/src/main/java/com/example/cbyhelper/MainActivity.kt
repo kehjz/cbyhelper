@@ -1,43 +1,150 @@
 package com.example.cbyhelper
 
-import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cbyhelper.ui.theme.CBYHelperTheme
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
-import androidx.compose.ui.Alignment
-import com.example.cbyhelper.ui.theme.CBYHelperTheme
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.core.view.WindowCompat
-import androidx.compose.runtime.SideEffect
 
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CBYHelperTheme {
-                ScannerApp()
+                AppRoot()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppRoot() {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var selectedScreen by remember { mutableStateOf("Home") }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text("CBY Helper", fontSize = 20.sp, modifier = Modifier.padding(16.dp))
+                Divider()
+                DrawerItem("Home", onClick = { selectedScreen = it }, scope, drawerState)
+                DrawerItem("Shipment Scanning", onClick = { selectedScreen = it }, scope, drawerState)
+                DrawerItem("Departure Timing", onClick = { selectedScreen = it }, scope, drawerState)
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { Text(selectedScreen) },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues)) {
+                when (selectedScreen) {
+                    "Home" -> HomeScreen(onSelect = { selectedScreen = it })
+                    "Shipment Scanning" -> ScannerApp()
+                    "Departure Timing" -> DepartureTimingApp()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerItem(
+    text: String,
+    onClick: (String) -> Unit,
+    scope: CoroutineScope,
+    drawerState: DrawerState
+) {
+    Text(
+        text = text,
+        fontSize = 18.sp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onClick(text)
+                scope.launch { drawerState.close() }
+            }
+            .padding(16.dp)
+    )
+}
+
+@Composable
+fun HomeScreen(onSelect: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            HomeTile("Shipment Scanning", Color(0xFF1B9E77)) {
+                onSelect("Shipment Scanning")
+            }
+            HomeTile("Departure Timing", Color(0xFFD95F02)) {
+                onSelect("Departure Timing")
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
+    val lines = label.split(" ")
+
+    Box(
+        modifier = Modifier
+            .size(120.dp)
+            .background(color = color, shape = MaterialTheme.shapes.medium)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            lines.forEach {
+                Text(
+                    text = it,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -46,14 +153,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ScannerApp() {
     val context = LocalContext.current
-    val view = LocalView.current
-
-    SideEffect {
-        val window = (view.context as Activity).window
-        window.statusBarColor = Color.White.toArgb() // Background color
-        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true // Use dark icons
-    }
-
     var scannedText by remember { mutableStateOf("") }
     var hubName by remember { mutableStateOf("") }
     var sackSorting by remember { mutableStateOf("") }
@@ -68,7 +167,6 @@ fun ScannerApp() {
         loading = true
         lookupMap = fetchHubMap()
         loading = false
-
         delay(500)
         focusRequester.requestFocus()
     }
@@ -76,16 +174,9 @@ fun ScannerApp() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Shipment Scanner",
-            style = MaterialTheme.typography.headlineSmall,
-            color = Color.Black
-        )
-
         OutlinedTextField(
             value = scannedText,
             onValueChange = {
@@ -109,17 +200,15 @@ fun ScannerApp() {
                         hubName = ""
                         sackSorting = ""
                         osaLane = ""
-                        error = "❌ Hub ID $hubId not found"
+                        error = "❌⚠️ Invalid"
                         scannedText = ""
-                        focusRequester.requestFocus()
                     }
                 } catch (e: Exception) {
                     hubName = ""
                     sackSorting = ""
                     osaLane = ""
-                    error = "❌ Invalid JSON format"
+                    error = "❌⚠️ Invalid"
                     scannedText = ""
-                    focusRequester.requestFocus()
                 }
             },
             modifier = Modifier
@@ -130,54 +219,92 @@ fun ScannerApp() {
             label = { Text("Scan shipment AWB label") }
         )
 
-        if (loading) {
-            CircularProgressIndicator()
-        } else {
-            Button(
-                onClick = {
-                    loading = true
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val updatedMap = fetchHubMap()
-                        withContext(Dispatchers.Main) {
-                            lookupMap = updatedMap
-                            loading = false
-                            focusRequester.requestFocus()
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            if (loading) {
+                CircularProgressIndicator()
+            } else {
+                Button(
+                    onClick = {
+                        loading = true
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val updatedMap = fetchHubMap()
+                            withContext(Dispatchers.Main) {
+                                lookupMap = updatedMap
+                                loading = false
+                                focusRequester.requestFocus()
+                            }
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+                ) {
+                    Text("Refresh Data", color = Color.White)
                 }
-            ) {
-                Text("\uD83D\uDD04 Refresh Data")
             }
         }
 
         if (hubName.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Shipment Dest Hub:", fontSize = 18.sp)
-            Text(hubName, fontSize = 20.sp)
-            Divider(thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column {
+                    Text("Shipment Dest Hub", fontSize = 16.sp)
+                    Text(hubName, fontSize = 14.sp)
+                }
 
-            Image(
-                painter = painterResource(id = R.drawable.conveyor),
-                contentDescription = "Conveyor Icon",
-                modifier = Modifier.size(96.dp),
-                contentScale = ContentScale.Fit
-            )
-            Text("Sack Segregation:", fontSize = 20.sp)
-            Text(sackSorting, fontSize = 40.sp)
-            Divider(thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+                Divider()
 
-            Image(
-                painter = painterResource(id = R.drawable.pallet),
-                contentDescription = "Pallet Icon",
-                modifier = Modifier.size(96.dp),
-                contentScale = ContentScale.Fit
-            )
-            Text("OSA Lane:", fontSize = 20.sp)
-            Text(osaLane, fontSize = 40.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Sack Segregation", fontSize = 15.sp, modifier = Modifier.align(Alignment.Start))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Image(
+                            painter = painterResource(id = R.drawable.conveyor),
+                            contentDescription = "Sack",
+                            modifier = Modifier.size(80.dp).align(Alignment.Start)
+                        )
+                    }
+                    Text(sackSorting, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
+                }
+
+                Divider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("OSA Lane", fontSize = 15.sp, modifier = Modifier.align(Alignment.Start))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Image(
+                            painter = painterResource(id = R.drawable.pallet),
+                            contentDescription = "OSA",
+                            modifier = Modifier.size(80.dp).align(Alignment.Start)
+                        )
+                    }
+                    Text(osaLane, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
+                }
+            }
         }
 
         if (error.isNotEmpty()) {
-            Text("⚠️ $error", color = MaterialTheme.colorScheme.error)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 22.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -203,5 +330,15 @@ fun fetchHubMap(): Map<Int, Triple<String, String, String>> {
     } catch (e: Exception) {
         Log.e("fetchHubMap", "❌ Error: ${e.message}")
         emptyMap()
+    }
+}
+
+@Composable
+fun DepartureTimingApp() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Departure Timing Screen (to be built)")
     }
 }
