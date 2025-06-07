@@ -2,6 +2,7 @@ package com.example.cbyhelper
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -29,6 +30,8 @@ import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -160,16 +163,9 @@ fun ScannerApp() {
     var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
+    var refreshedRecently by remember { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        loading = true
-        lookupMap = fetchHubMap()
-        loading = false
-        delay(500)
-        focusRequester.requestFocus()
-    }
 
     Column(
         modifier = Modifier
@@ -180,35 +176,38 @@ fun ScannerApp() {
         OutlinedTextField(
             value = scannedText,
             onValueChange = {
-                scannedText = it
-                try {
-                    val json = JSONObject(scannedText)
-                    val hubId = json.get("destination_hub_id").toString().toInt()
-                    val result = lookupMap[hubId]
-                    if (result != null) {
-                        hubName = result.first
-                        sackSorting = result.second
-                        osaLane = result.third
-                        error = ""
+                if (!loading) {
+                    scannedText = it
+                    refreshedRecently = false
+                    try {
+                        val json = JSONObject(scannedText)
+                        val hubId = json.get("destination_hub_id").toString().toInt()
+                        val result = lookupMap[hubId]
+                        if (result != null) {
+                            hubName = result.first
+                            sackSorting = result.second
+                            osaLane = result.third
+                            error = ""
 
-                        CoroutineScope(Dispatchers.Main).launch {
-                            delay(300)
+                            CoroutineScope(Dispatchers.Main).launch {
+                                delay(300)
+                                scannedText = ""
+                                focusRequester.requestFocus()
+                            }
+                        } else {
+                            hubName = ""
+                            sackSorting = ""
+                            osaLane = ""
+                            error = "❌⚠️ Invalid"
                             scannedText = ""
-                            focusRequester.requestFocus()
                         }
-                    } else {
+                    } catch (e: Exception) {
                         hubName = ""
                         sackSorting = ""
                         osaLane = ""
                         error = "❌⚠️ Invalid"
                         scannedText = ""
                     }
-                } catch (e: Exception) {
-                    hubName = ""
-                    sackSorting = ""
-                    osaLane = ""
-                    error = "❌⚠️ Invalid"
-                    scannedText = ""
                 }
             },
             modifier = Modifier
@@ -216,7 +215,10 @@ fun ScannerApp() {
                 .focusRequester(focusRequester),
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
             singleLine = true,
-            label = { Text("Scan shipment AWB label") }
+            label = {
+                Text(if (loading) "Loading... please wait" else "Scan shipment AWB label")
+            },
+            enabled = !loading
         )
 
         Box(
@@ -234,13 +236,18 @@ fun ScannerApp() {
                             withContext(Dispatchers.Main) {
                                 lookupMap = updatedMap
                                 loading = false
+                                refreshedRecently = true
+                                Toast.makeText(context, "✅ Data refreshed", Toast.LENGTH_SHORT).show()
                                 focusRequester.requestFocus()
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
                 ) {
-                    Text("Refresh Data", color = Color.White)
+                    Text(
+                        if (refreshedRecently) "✅ Refreshed" else "Refresh Data",
+                        color = Color.White
+                    )
                 }
             }
         }
@@ -260,12 +267,12 @@ fun ScannerApp() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Sack Segregation", fontSize = 15.sp, modifier = Modifier.align(Alignment.Start))
+                        Text("Sack Segregation", fontSize = 15.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Image(
                             painter = painterResource(id = R.drawable.conveyor),
                             contentDescription = "Sack",
-                            modifier = Modifier.size(80.dp).align(Alignment.Start)
+                            modifier = Modifier.size(80.dp)
                         )
                     }
                     Text(sackSorting, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
@@ -279,12 +286,12 @@ fun ScannerApp() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("OSA Lane", fontSize = 15.sp, modifier = Modifier.align(Alignment.Start))
+                        Text("OSA Lane", fontSize = 15.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Image(
                             painter = painterResource(id = R.drawable.pallet),
                             contentDescription = "OSA",
-                            modifier = Modifier.size(80.dp).align(Alignment.Start)
+                            modifier = Modifier.size(80.dp)
                         )
                     }
                     Text(osaLane, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
@@ -294,8 +301,7 @@ fun ScannerApp() {
 
         if (error.isNotEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -308,6 +314,9 @@ fun ScannerApp() {
         }
     }
 }
+
+
+
 
 fun fetchHubMap(): Map<Int, Triple<String, String, String>> {
     val map = mutableMapOf<Int, Triple<String, String, String>>()
