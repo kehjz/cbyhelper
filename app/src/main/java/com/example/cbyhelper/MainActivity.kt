@@ -22,8 +22,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.layout.ContentScale
 import com.example.cbyhelper.ui.theme.CBYHelperTheme
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.graphics.Color
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,13 +63,14 @@ fun ScannerApp() {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "Shipment Scanner",
             style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary
+            color = Color.Black
         )
 
         OutlinedTextField(
