@@ -30,8 +30,10 @@ import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
-import android.speech.tts.TextToSpeech
-import java.util.Locale
+
+// Your Google Apps Script endpoint returning JSON array
+private const val SHEET_ENDPOINT =
+    "https://script.google.com/macros/s/AKfycbx9--CxDDuKGT4LX8pgNKXyKWDS4fqGS6cTvUUNeFv-3Z99LtOwDHoQBrIKin8Zx-kF/exec?pull_all=1"
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -60,7 +62,7 @@ fun AppRoot() {
                 Divider()
                 DrawerItem("Home", onClick = { selectedScreen = it }, scope, drawerState)
                 DrawerItem("Shipment Scanning", onClick = { selectedScreen = it }, scope, drawerState)
-                DrawerItem("Departure Timing", onClick = { selectedScreen = it }, scope, drawerState)
+                DrawerItem("Coming soon", onClick = { selectedScreen = it }, scope, drawerState)
             }
         }
     ) {
@@ -80,7 +82,7 @@ fun AppRoot() {
                 when (selectedScreen) {
                     "Home" -> HomeScreen(onSelect = { selectedScreen = it })
                     "Shipment Scanning" -> ScannerApp()
-                    "Departure Timing" -> DepartureTimingApp()
+                    "Coming soon" -> ComingSoonScreen()
                 }
             }
         }
@@ -117,22 +119,15 @@ fun HomeScreen(onSelect: (String) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            HomeTile("Shipment Scanning", Color(0xFF1B9E77)) {
-                onSelect("Shipment Scanning")
-            }
-            HomeTile("Departure Timing", Color(0xFFD95F02)) {
-                onSelect("Departure Timing")
-            }
+            HomeTile("Shipment Scanning", Color(0xFF1B9E77)) { onSelect("Shipment Scanning") }
+            HomeTile("Coming soon",          Color(0xFFD95F02)) { onSelect("Coming soon") }
         }
     }
 }
 
 @Composable
 fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
-    val lines = label.split(" ")
-
     Box(
         modifier = Modifier
             .size(120.dp)
@@ -141,15 +136,20 @@ fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            lines.forEach {
-                Text(
-                    text = it,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
-                )
+            label.split(" ").forEach {
+                Text(it, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
             }
         }
+    }
+}
+
+@Composable
+fun ComingSoonScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Coming soon", fontSize = 18.sp)
     }
 }
 
@@ -162,69 +162,50 @@ fun ScannerApp() {
     var osaLane by remember { mutableStateOf("") }
     var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
-    var refreshedRecently by remember { mutableStateOf(false) }
-
     val focusRequester = remember { FocusRequester() }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
             value = scannedText,
-            onValueChange = {
+            onValueChange = { input ->
                 if (!loading) {
-                    scannedText = it
-                    refreshedRecently = false
+                    scannedText = input
                     try {
-                        val json = JSONObject(scannedText)
-                        val hubId = json.get("destination_hub_id").toString().toInt()
-                        val result = lookupMap[hubId]
-                        if (result != null) {
-                            hubName = result.first
-                            sackSorting = result.second
-                            osaLane = result.third
-                            error = ""
-
-                            CoroutineScope(Dispatchers.Main).launch {
-                                delay(300)
-                                scannedText = ""
-                                focusRequester.requestFocus()
-                            }
-                        } else {
+                        val json = JSONObject(input)
+                        val hubId = json.getInt("destination_hub_id")
+                        lookupMap[hubId]?.let { (name, sack, lane) ->
+                            hubName = name
+                            sackSorting = sack
+                            osaLane = lane
+                        } ?: run {
                             hubName = ""
                             sackSorting = ""
                             osaLane = ""
-                            error = "❌⚠️ Invalid"
-                            scannedText = ""
                         }
-                    } catch (e: Exception) {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            delay(300)
+                            scannedText = ""
+                            focusRequester.requestFocus()
+                        }
+                    } catch (_: Exception) {
                         hubName = ""
                         sackSorting = ""
                         osaLane = ""
-                        error = "❌⚠️ Invalid"
                         scannedText = ""
                     }
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
+            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             singleLine = true,
-            label = {
-                Text(if (loading) "Loading... please wait" else "Scan shipment AWB label")
-            },
+            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
+            label = { Text(if (loading) "Loading... please wait" else "Scan shipment AWB label") },
             enabled = !loading
         )
 
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (loading) {
                 CircularProgressIndicator()
             } else {
@@ -232,33 +213,26 @@ fun ScannerApp() {
                     onClick = {
                         loading = true
                         CoroutineScope(Dispatchers.IO).launch {
-                            val updatedMap = fetchHubMap()
+                            val updated = fetchHubMap()
                             withContext(Dispatchers.Main) {
-                                lookupMap = updatedMap
+                                lookupMap = updated
                                 loading = false
-                                refreshedRecently = true
-                                Toast.makeText(context, "✅ Data refreshed", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
                                 focusRequester.requestFocus()
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
                 ) {
-                    Text(
-                        if (refreshedRecently) "✅ Refreshed" else "Refresh Data",
-                        color = Color.White
-                    )
+                    Text("Refresh Data", color = Color.White)
                 }
             }
         }
 
         if (hubName.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Column {
-                    Text("Shipment Dest Hub", fontSize = 16.sp)
-                    Text(hubName, fontSize = 14.sp)
-                }
-
+                Text("Shipment Dest Hub", fontSize = 16.sp)
+                Text(hubName, fontSize = 14.sp)
                 Divider()
 
                 Row(
@@ -271,11 +245,11 @@ fun ScannerApp() {
                         Spacer(modifier = Modifier.height(4.dp))
                         Image(
                             painter = painterResource(id = R.drawable.conveyor),
-                            contentDescription = "Sack",
+                            contentDescription = null,
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(sackSorting, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
+                    Text(sackSorting, fontSize = 45.sp)
                 }
 
                 Divider()
@@ -290,64 +264,35 @@ fun ScannerApp() {
                         Spacer(modifier = Modifier.height(4.dp))
                         Image(
                             painter = painterResource(id = R.drawable.pallet),
-                            contentDescription = "OSA",
+                            contentDescription = null,
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(osaLane, fontSize = 45.sp, modifier = Modifier.padding(end = 8.dp))
+                    Text(osaLane, fontSize = 45.sp)
                 }
             }
         }
+    }
+}
 
-        if (error.isNotEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 22.sp,
-                    textAlign = TextAlign.Center
+fun fetchHubMap(): Map<Int, Triple<String, String, String>> =
+    try {
+        val json = URL(SHEET_ENDPOINT).readText()
+        val arr = JSONArray(json)
+        buildMap {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                put(
+                    o.getInt("Shipment Destination Hub ID"),
+                    Triple(
+                        o.getString("Shipment Destination Hub Name"),
+                        o.getString("Sack Segregation"),
+                        o.getString("OSA lane")
+                    )
                 )
             }
         }
-    }
-}
-
-
-
-
-fun fetchHubMap(): Map<Int, Triple<String, String, String>> {
-    val map = mutableMapOf<Int, Triple<String, String, String>>()
-    return try {
-        val json = URL("https://script.google.com/macros/s/AKfycbza1E7FT2x62m-THXFzRNddvQHIwlFzp3UTcC1OaQ2vhzAi0EjJYqMnHjDT8B__Uhum/exec?pull_all=1")
-            .readText()
-
-        val array = JSONArray(json)
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val hubId = obj.getInt("Shipment Destination Hub ID")
-            val hubName = obj.getString("Shipment Destination Hub Name")
-            val sack = obj.getString("Sack Segregation")
-            val lane = obj.get("OSA lane").toString()
-            map[hubId] = Triple(hubName, sack, lane)
-        }
-
-        Log.d("DEBUG", "✅ Map Loaded: $map")
-        map
     } catch (e: Exception) {
-        Log.e("fetchHubMap", "❌ Error: ${e.message}")
+        Log.e("fetchHubMap", "Error: ${e.message}")
         emptyMap()
     }
-}
-
-@Composable
-fun DepartureTimingApp() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Departure Timing Screen (to be built)")
-    }
-}
