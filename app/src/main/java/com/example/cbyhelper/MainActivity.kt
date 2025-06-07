@@ -23,12 +23,15 @@ import org.json.JSONObject
 import java.net.URL
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
+import com.example.cbyhelper.ui.theme.CBYHelperTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ScannerApp()
+            CBYHelperTheme {
+                ScannerApp()
+            }
         }
     }
 }
@@ -61,7 +64,11 @@ fun ScannerApp() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Scan JSON barcode:", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = "Shipment Scanner",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
 
         OutlinedTextField(
             value = scannedText,
@@ -100,7 +107,7 @@ fun ScannerApp() {
                 .focusRequester(focusRequester),
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
             singleLine = true,
-            label = { Text("Paste or scan JSON here") }
+            label = { Text("Scan shipment AWB label") }
         )
 
         if (loading) {
@@ -119,7 +126,7 @@ fun ScannerApp() {
                     }
                 }
             ) {
-                Text("🔄 Refresh Data")
+                Text("\uD83D\uDD04 Refresh Data")
             }
         }
 
@@ -178,5 +185,3 @@ fun fetchHubMap(): Map<Int, Triple<String, String, String>> {
         emptyMap()
     }
 }
-
-// This is a test change
