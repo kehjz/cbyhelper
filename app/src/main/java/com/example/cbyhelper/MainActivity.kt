@@ -13,6 +13,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +32,9 @@ import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+
 
 private const val SHEET_ENDPOINT =
     "https://script.google.com/macros/s/AKfycbza1E7FT2x62m-THXFzRNddvQHIwlFzp3UTcC1OaQ2vhzAi0EjJYqMnHjDT8B__Uhum/exec"
@@ -38,6 +43,12 @@ private const val SHEET_ENDPOINT =
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Make status bar white with dark icons
+        window.statusBarColor = android.graphics.Color.WHITE
+        WindowCompat.getInsetsController(window, window.decorView)
+            ?.isAppearanceLightStatusBars = true
+
         setContent {
             CBYHelperTheme {
                 AppRoot()
@@ -58,7 +69,7 @@ fun AppRoot() {
         drawerContent = {
             ModalDrawerSheet {
                 Text("CBY Helper", fontSize = 20.sp, modifier = Modifier.padding(16.dp))
-                Divider()
+                HorizontalDivider()
                 DrawerItem("Home", onClick = { selectedScreen = it }, scope, drawerState)
                 DrawerItem("Shipment Scanning", onClick = { selectedScreen = it }, scope, drawerState)
                 DrawerItem("Coming soon", onClick = { selectedScreen = it }, scope, drawerState)
@@ -67,8 +78,14 @@ fun AppRoot() {
     ) {
         Scaffold(
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text(selectedScreen) },
+                // ✅ Left-aligned title beside burger
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = selectedScreen,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
@@ -113,30 +130,40 @@ fun HomeScreen(onSelect: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 24.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            HomeTile("Shipment Scanning", Color(0xFF1B9E77)) { onSelect("Shipment Scanning") }
-            HomeTile("Coming soon", Color(0xFFD95F02)) { onSelect("Coming soon") }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            HomeTile("Shipment Scanning", Color(0xFF009E73)) { onSelect("Shipment Scanning") }
+            HomeTile("Coming soon", Color(0xFFE69F00)) { onSelect("Coming soon") }
         }
     }
 }
 
 @Composable
 fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
+    val lines = label.split(" ")
+
     Box(
         modifier = Modifier
-            .size(120.dp)
-            .background(color = color, shape = MaterialTheme.shapes.medium)
+            .size(140.dp)
+            .clip(RoundedCornerShape(16.dp)) // Rounded corners
+            .background(color = color)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            label.split(" ").forEach {
-                Text(it, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+            lines.forEach {
+                Text(
+                    it,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -161,7 +188,7 @@ fun ScannerApp() {
     var osaLane by remember { mutableStateOf("") }
     var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
     var loading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var isInvalid by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
     Column(
@@ -182,12 +209,12 @@ fun ScannerApp() {
                             hubName = name
                             sackSorting = sack
                             osaLane = lane
-                            errorMessage = ""
+                            isInvalid = false
                         } ?: run {
                             hubName = ""
                             sackSorting = ""
                             osaLane = ""
-                            errorMessage = "❌ Invalid barcode"
+                            isInvalid = true
                         }
                         CoroutineScope(Dispatchers.Main).launch {
                             delay(300)
@@ -199,7 +226,7 @@ fun ScannerApp() {
                         sackSorting = ""
                         osaLane = ""
                         scannedText = ""
-                        errorMessage = "❌ Invalid barcode"
+                        isInvalid = true
                     }
                 }
             },
@@ -208,49 +235,65 @@ fun ScannerApp() {
                 .focusRequester(focusRequester),
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
-            label = { Text(if (loading) "Loading... please wait" else "Scan shipment AWB label") },
+            label = {
+                Text(if (loading) "Loading... please wait" else "Scan shipment AWB label")
+            },
             enabled = !loading
         )
 
-        if (errorMessage.isNotEmpty()) {
-            Text(
-                text = errorMessage,
-                color = Color.Red,
-                fontSize = 18.sp,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            if (loading) {
-                CircularProgressIndicator()
-            } else {
-                Button(
-                    onClick = {
-                        loading = true
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val updated = fetchHubMap()
-                            withContext(Dispatchers.Main) {
-                                lookupMap = updated
-                                loading = false
-                                Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
-                                focusRequester.requestFocus()
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                ) {
-                    Text("Refresh Data", color = Color.White)
+        Button(
+            onClick = {
+                loading = true
+                CoroutineScope(Dispatchers.IO).launch {
+                    val updated = fetchHubMap()
+                    withContext(Dispatchers.Main) {
+                        lookupMap = updated
+                        loading = false
+                        Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
+                        focusRequester.requestFocus()
+                    }
                 }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            if (loading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text("Refresh Data", color = Color.White)
             }
         }
 
-        if (hubName.isNotEmpty()) {
+        if (isInvalid) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "❌",
+                        fontSize = 80.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = "Invalid\nBarcode",
+                        fontSize = 40.sp,
+                        color = Color.Red,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 44.sp
+                    )
+                }
+            }
+        } else if (hubName.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Shipment Dest Hub", fontSize = 16.sp)
                 Text(hubName, fontSize = 14.sp)
-                Divider()
+                HorizontalDivider()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -266,10 +309,14 @@ fun ScannerApp() {
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(sackSorting, fontSize = 45.sp)
+                    Text(
+                        sackSorting,
+                        fontSize = 45.sp,
+                        textAlign = TextAlign.End
+                    )
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -285,7 +332,11 @@ fun ScannerApp() {
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(osaLane, fontSize = 45.sp)
+                    Text(
+                        osaLane,
+                        fontSize = 45.sp,
+                        textAlign = TextAlign.End
+                    )
                 }
             }
         }
