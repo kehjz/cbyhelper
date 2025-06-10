@@ -9,20 +9,24 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.core.view.WindowCompat
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,9 +36,6 @@ import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-
 
 private const val SHEET_ENDPOINT =
     "https://script.google.com/macros/s/AKfycbza1E7FT2x62m-THXFzRNddvQHIwlFzp3UTcC1OaQ2vhzAi0EjJYqMnHjDT8B__Uhum/exec"
@@ -44,7 +45,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ Make status bar white with dark icons
         window.statusBarColor = android.graphics.Color.WHITE
         WindowCompat.getInsetsController(window, window.decorView)
             ?.isAppearanceLightStatusBars = true
@@ -78,14 +78,8 @@ fun AppRoot() {
     ) {
         Scaffold(
             topBar = {
-                // ✅ Left-aligned title beside burger
                 TopAppBar(
-                    title = {
-                        Text(
-                            text = selectedScreen,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    },
+                    title = { Text(text = selectedScreen, style = MaterialTheme.typography.titleLarge) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
@@ -147,11 +141,10 @@ fun HomeScreen(onSelect: (String) -> Unit) {
 @Composable
 fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
     val lines = label.split(" ")
-
     Box(
         modifier = Modifier
             .size(140.dp)
-            .clip(RoundedCornerShape(16.dp)) // Rounded corners
+            .clip(RoundedCornerShape(16.dp))
             .background(color = color)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -182,6 +175,9 @@ fun ComingSoonScreen() {
 @Composable
 fun ScannerApp() {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+
     var scannedText by remember { mutableStateOf("") }
     var hubName by remember { mutableStateOf("") }
     var sackSorting by remember { mutableStateOf("") }
@@ -189,7 +185,6 @@ fun ScannerApp() {
     var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
     var loading by remember { mutableStateOf(false) }
     var isInvalid by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
 
     Column(
         modifier = Modifier
@@ -199,42 +194,47 @@ fun ScannerApp() {
     ) {
         OutlinedTextField(
             value = scannedText,
-            onValueChange = { input ->
-                if (!loading) {
-                    scannedText = input
-                    try {
-                        val json = JSONObject(input)
-                        val hubId = json.getInt("destination_hub_id")
-                        lookupMap[hubId]?.let { (name, sack, lane) ->
-                            hubName = name
-                            sackSorting = sack
-                            osaLane = lane
-                            isInvalid = false
-                        } ?: run {
+            onValueChange = { scannedText = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    if (!loading) {
+                        try {
+                            val json = JSONObject(scannedText)
+                            val hubId = json.getInt("destination_hub_id")
+                            lookupMap[hubId]?.let { (name, sack, lane) ->
+                                hubName = name
+                                sackSorting = sack
+                                osaLane = lane
+                                isInvalid = false
+                            } ?: run {
+                                hubName = ""
+                                sackSorting = ""
+                                osaLane = ""
+                                isInvalid = true
+                            }
+                        } catch (_: Exception) {
                             hubName = ""
                             sackSorting = ""
                             osaLane = ""
                             isInvalid = true
                         }
+                        scannedText = ""
+                        focusManager.clearFocus()
                         CoroutineScope(Dispatchers.Main).launch {
                             delay(300)
-                            scannedText = ""
                             focusRequester.requestFocus()
                         }
-                    } catch (_: Exception) {
-                        hubName = ""
-                        sackSorting = ""
-                        osaLane = ""
-                        scannedText = ""
-                        isInvalid = true
                     }
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
+            ),
             label = {
                 Text(if (loading) "Loading... please wait" else "Scan shipment AWB label")
             },
@@ -275,11 +275,7 @@ fun ScannerApp() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "❌",
-                        fontSize = 80.sp,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                    Text("❌", fontSize = 80.sp, modifier = Modifier.padding(bottom = 16.dp))
                     Text(
                         text = "Invalid\nBarcode",
                         fontSize = 40.sp,
@@ -309,11 +305,7 @@ fun ScannerApp() {
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(
-                        sackSorting,
-                        fontSize = 45.sp,
-                        textAlign = TextAlign.End
-                    )
+                    Text(sackSorting, fontSize = 45.sp, textAlign = TextAlign.End)
                 }
 
                 HorizontalDivider()
@@ -332,11 +324,7 @@ fun ScannerApp() {
                             modifier = Modifier.size(80.dp)
                         )
                     }
-                    Text(
-                        osaLane,
-                        fontSize = 45.sp,
-                        textAlign = TextAlign.End
-                    )
+                    Text(osaLane, fontSize = 45.sp, textAlign = TextAlign.End)
                 }
             }
         }
