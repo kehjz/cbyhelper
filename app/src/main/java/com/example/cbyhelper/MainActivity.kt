@@ -26,9 +26,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cbyhelper.ui.theme.CBYHelperTheme
@@ -37,6 +39,26 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 
+// ─────────────── Color Helpers ───────────────
+typealias SackCode = String
+
+fun getSackColor(code: SackCode): Color = when (code.firstOrNull()) {
+    'A' -> Color(0xFF009E73) // Green
+    'B' -> Color(0xFF56B4E9) // Blue
+    'C' -> Color(0xFFE69F00) // Orange
+    'D' -> Color(0xFFF0E442) // Yellow
+    else -> Color(0xFF999999) // Grey fallback
+}
+
+private val homeColors = listOf(
+    Color(0xFF009E73), // Green
+    Color(0xFF56B4E9), // Blue
+    Color(0xFFE69F00), // Orange
+    Color(0xFFCC79A7), // Pink
+    Color(0xFFF0E442), // Yellow
+    Color(0xFFD55E00)  // Red
+)
+
 private const val SHEET_ENDPOINT =
     "https://script.google.com/macros/s/AKfycbza1E7FT2x62m-THXFzRNddvQHIwlFzp3UTcC1OaQ2vhzAi0EjJYqMnHjDT8B__Uhum/exec"
 
@@ -44,11 +66,9 @@ private const val SHEET_ENDPOINT =
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         window.statusBarColor = android.graphics.Color.WHITE
         WindowCompat.getInsetsController(window, window.decorView)
             ?.isAppearanceLightStatusBars = true
-
         setContent {
             CBYHelperTheme {
                 AppRoot()
@@ -60,7 +80,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot() {
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf("Home") }
 
@@ -69,17 +89,16 @@ fun AppRoot() {
         drawerContent = {
             ModalDrawerSheet {
                 Text("CBY Helper", fontSize = 20.sp, modifier = Modifier.padding(16.dp))
-                HorizontalDivider()
-                DrawerItem("Home", onClick = { selectedScreen = it }, scope, drawerState)
-                DrawerItem("Shipment Scanning", onClick = { selectedScreen = it }, scope, drawerState)
-                DrawerItem("Coming soon", onClick = { selectedScreen = it }, scope, drawerState)
+                Divider()
+                DrawerItem("Home", scope, drawerState) { selectedScreen = it }
+                DrawerItem("Shipment Scanning", scope, drawerState) { selectedScreen = it }
             }
         }
     ) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(text = selectedScreen, style = MaterialTheme.typography.titleLarge) },
+                    title = { Text(selectedScreen, style = MaterialTheme.typography.titleLarge) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
@@ -87,12 +106,11 @@ fun AppRoot() {
                     }
                 )
             }
-        ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues)) {
+        ) { padding ->
+            Box(Modifier.padding(padding)) {
                 when (selectedScreen) {
-                    "Home" -> HomeScreen(onSelect = { selectedScreen = it })
+                    "Home" -> HomeScreen { selectedScreen = it }
                     "Shipment Scanning" -> ScannerApp()
-                    "Coming soon" -> ComingSoonScreen()
                 }
             }
         }
@@ -102,9 +120,9 @@ fun AppRoot() {
 @Composable
 fun DrawerItem(
     text: String,
-    onClick: (String) -> Unit,
     scope: CoroutineScope,
-    drawerState: DrawerState
+    drawerState: DrawerState,
+    onClick: (String) -> Unit
 ) {
     Text(
         text = text,
@@ -124,51 +142,45 @@ fun HomeScreen(onSelect: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.Top,
+            .padding(24.dp),
+        verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            HomeTile("Shipment Scanning", Color(0xFF009E73)) { onSelect("Shipment Scanning") }
-            HomeTile("Coming soon", Color(0xFFE69F00)) { onSelect("Coming soon") }
-        }
-    }
-}
-
-@Composable
-fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
-    val lines = label.split(" ")
-    Box(
-        modifier = Modifier
-            .size(140.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(color = color)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            lines.forEach {
-                Text(
-                    it,
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center
-                )
+        repeat(2) { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(3) { col ->
+                    val index = row * 3 + col
+                    val label = if (index == 0) "Shipment Scanning" else ""
+                    HomeTile(label, homeColors[index]) {
+                        if (label.isNotEmpty()) onSelect(label)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun ComingSoonScreen() {
+fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .size(100.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(color)
+            .clickable(enabled = label.isNotEmpty()) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text("Coming soon", fontSize = 18.sp)
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -186,145 +198,151 @@ fun ScannerApp() {
     var loading by remember { mutableStateOf(false) }
     var isInvalid by remember { mutableStateOf(false) }
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(16.dp)
     ) {
-        OutlinedTextField(
-            value = scannedText,
-            onValueChange = { scannedText = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    if (!loading) {
-                        try {
-                            val json = JSONObject(scannedText)
-                            val hubId = json.getInt("destination_hub_id")
-                            lookupMap[hubId]?.let { (name, sack, lane) ->
-                                hubName = name
-                                sackSorting = sack
-                                osaLane = lane
-                                isInvalid = false
-                            } ?: run {
+        val totalHeight = maxHeight
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.height(totalHeight * 0.2f)
+        ) {
+            OutlinedTextField(
+                value = scannedText,
+                onValueChange = { scannedText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (!loading) {
+                            try {
+                                val json = JSONObject(scannedText)
+                                val hubId = json.getInt("destination_hub_id")
+                                lookupMap[hubId]?.let { (name, sack, lane) ->
+                                    hubName = name
+                                    sackSorting = sack
+                                    osaLane = lane
+                                    isInvalid = false
+                                } ?: run {
+                                    hubName = ""
+                                    sackSorting = ""
+                                    osaLane = ""
+                                    isInvalid = true
+                                }
+                            } catch (_: Exception) {
                                 hubName = ""
                                 sackSorting = ""
                                 osaLane = ""
                                 isInvalid = true
                             }
-                        } catch (_: Exception) {
-                            hubName = ""
-                            sackSorting = ""
-                            osaLane = ""
-                            isInvalid = true
+                            scannedText = ""
+                            focusManager.clearFocus()
+                            CoroutineScope(Dispatchers.Main).launch {
+                                delay(300)
+                                focusRequester.requestFocus()
+                            }
                         }
-                        scannedText = ""
-                        focusManager.clearFocus()
-                        CoroutineScope(Dispatchers.Main).launch {
-                            delay(300)
+                    }
+                ),
+                label = { Text(if (loading) "Loading... please wait" else "Scan shipment AWB label") },
+                enabled = !loading
+            )
+
+            Button(
+                onClick = {
+                    loading = true
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val updated = fetchHubMap()
+                        withContext(Dispatchers.Main) {
+                            lookupMap = updated
+                            loading = false
+                            Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
                             focusRequester.requestFocus()
                         }
                     }
-                }
-            ),
-            label = {
-                Text(if (loading) "Loading... please wait" else "Scan shipment AWB label")
-            },
-            enabled = !loading
-        )
-
-        Button(
-            onClick = {
-                loading = true
-                CoroutineScope(Dispatchers.IO).launch {
-                    val updated = fetchHubMap()
-                    withContext(Dispatchers.Main) {
-                        lookupMap = updated
-                        loading = false
-                        Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
-                        focusRequester.requestFocus()
-                    }
-                }
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            if (loading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-            } else {
-                Text("Refresh Data", color = Color.White)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                if (loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                else Text("Refresh Data", color = Color.White)
             }
         }
 
         if (isInvalid) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 32.dp),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("❌", fontSize = 80.sp, modifier = Modifier.padding(bottom = 16.dp))
-                    Text(
-                        text = "Invalid\nBarcode",
-                        fontSize = 40.sp,
-                        color = Color.Red,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 44.sp
-                    )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("❌", fontSize = 80.sp)
+                    Text("Invalid\nBarcode", fontSize = 40.sp, color = Color.Red, textAlign = TextAlign.Center)
                 }
             }
         } else if (hubName.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text("Shipment Dest Hub", fontSize = 16.sp)
-                Text(hubName, fontSize = 14.sp)
-                HorizontalDivider()
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = totalHeight * 0.2f)
+            ) {
+                // Shipment Dest Hub Block
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.2f)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF999999)),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Column {
-                        Text("Sack Segregation", fontSize = 15.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Image(
-                            painter = painterResource(id = R.drawable.conveyor),
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp)
-                        )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Shipment Dest Hub", fontSize = 16.sp)
+                        Text(hubName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text(sackSorting, fontSize = 45.sp, textAlign = TextAlign.End)
                 }
-
-                HorizontalDivider()
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Sack Segregation Block
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.32f)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(getSackColor(sackSorting)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column {
-                        Text("OSA Lane", fontSize = 15.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Image(
-                            painter = painterResource(id = R.drawable.pallet),
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp)
-                        )
+                    Row(
+                        Modifier.fillMaxSize().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Sack Segregation", fontSize = 15.sp)
+                            Image(painter = painterResource(id = R.drawable.conveyor), contentDescription = null, modifier = Modifier.size(80.dp))
+                        }
+                        Text(sackSorting, fontSize = 48.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text(osaLane, fontSize = 45.sp, textAlign = TextAlign.End)
+                }
+                // OSA Lane Block
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.32f)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(getSackColor(osaLane)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        Modifier.fillMaxSize().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("OSA Lane", fontSize = 15.sp)
+                            Image(painter = painterResource(id = R.drawable.pallet), contentDescription = null, modifier = Modifier.size(80.dp))
+                        }
+                        Text(osaLane, fontSize = 48.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
