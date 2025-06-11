@@ -211,7 +211,11 @@ fun ScannerApp() {
                     },
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    Text("Refresh", fontSize = 16.sp)
+                    if (loading.value) {
+                        CircularProgressIndicator(Modifier.size(16.dp), color = Color.White)
+                    } else {
+                        Text("Refresh", fontSize = 12.sp)
+                    }
                 }
             }
 
@@ -233,20 +237,23 @@ fun ScannerApp() {
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
                             .background(getSackColor(value)),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.TopCenter
                     ) {
                         Column(
-                            Modifier.padding(8.dp),
+                            Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(label, fontSize = 10.sp)
+                            Text(label, fontSize = 14.sp)
                             val resId = if (label.startsWith("Sack")) R.drawable.conveyor else R.drawable.pallet
                             Image(
                                 painter = painterResource(resId),
                                 contentDescription = null,
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(64.dp)
                             )
-                            Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.weight(0.5f))
+                            Text(value, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -263,7 +270,7 @@ fun ScannerApp() {
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
                 singleLine = true,
-                textStyle = TextStyle(fontSize = 16.sp),
+                textStyle = TextStyle(fontSize = 10.sp),
                 keyboardOptions = KeyboardOptions.Default.copy(
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done
@@ -290,7 +297,7 @@ fun ScannerApp() {
                         }
                     }
                 }),
-                label = { Text("Scan AWB", fontSize = 16.sp) },
+                label = { Text("Scan AWB", fontSize = 10.sp) },
                 enabled = !loading.value
             )
         }
