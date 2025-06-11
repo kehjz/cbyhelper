@@ -14,24 +14,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.DrawerState
-import androidx.compose.runtime.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,39 +28,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.example.cbyhelper.ui.theme.CBYHelperTheme
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 
-
-// ─────────────── Color Helpers ───────────────
 typealias SackCode = String
 
 fun getSackColor(code: SackCode): Color = when (code.firstOrNull()) {
-    'A' -> Color(0xFF009E73) // Green
-    'B' -> Color(0xFF56B4E9) // Blue
-    'C' -> Color(0xFFE69F00) // Orange
-    'D' -> Color(0xFFF0E442) // Yellow
-    else -> Color(0xFF999999) // Grey fallback
+    'A' -> Color(0xFF009E73)
+    'B' -> Color(0xFF56B4E9)
+    'C' -> Color(0xFFE69F00)
+    'D' -> Color(0xFFF0E442)
+    else -> Color(0xFF999999)
 }
 
 private val homeColors = listOf(
-    Color(0xFF009E73), // Green
-    Color(0xFF56B4E9), // Blue
-    Color(0xFFE69F00), // Orange
-    Color(0xFFCC79A7), // Pink
-    Color(0xFFF0E442), // Yellow
-    Color(0xFFD55E00)  // Red
+    Color(0xFF009E73), Color(0xFF56B4E9), Color(0xFFE69F00),
+    Color(0xFFCC79A7), Color(0xFFF0E442), Color(0xFFD55E00)
 )
 
 private const val SHEET_ENDPOINT =
@@ -86,11 +70,7 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.WHITE
         WindowCompat.getInsetsController(window, window.decorView)
             ?.isAppearanceLightStatusBars = true
-        setContent {
-            CBYHelperTheme {
-                AppRoot()
-            }
-        }
+        setContent { CBYHelperTheme { AppRoot() } }
     }
 }
 
@@ -99,34 +79,34 @@ class MainActivity : ComponentActivity() {
 fun AppRoot() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    var selectedScreen by remember { mutableStateOf("Home") }
+    val selected = remember { mutableStateOf("Home") }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Text("CBY Helper", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(16.dp))
+                Text("CBY Helper", fontSize = 16.sp, modifier = Modifier.padding(12.dp))
                 Divider()
-                DrawerItem("Home", scope, drawerState) { selectedScreen = it }
-                DrawerItem("Shipment Scanning", scope, drawerState) { selectedScreen = it }
+                DrawerItem("Home", scope, drawerState) { selected.value = it }
+                DrawerItem("Shipment Scanning", scope, drawerState) { selected.value = it }
             }
         }
     ) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(selectedScreen, style = MaterialTheme.typography.titleLarge) },
+                    title = { Text(selected.value, fontSize = 16.sp) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            Icon(Icons.Default.Menu, contentDescription = null)
                         }
                     }
                 )
             }
         ) { padding ->
             Box(Modifier.padding(padding)) {
-                when (selectedScreen) {
-                    "Home" -> HomeScreen { selectedScreen = it }
+                when (selected.value) {
+                    "Home" -> HomeScreen { selected.value = it }
                     "Shipment Scanning" -> ScannerApp()
                 }
             }
@@ -137,20 +117,17 @@ fun AppRoot() {
 @Composable
 fun DrawerItem(
     text: String,
-    scope: CoroutineScope,
+    scope: kotlinx.coroutines.CoroutineScope,
     drawerState: DrawerState,
     onClick: (String) -> Unit
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyLarge,
+        fontSize = 14.sp,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onClick(text)
-                scope.launch { drawerState.close() }
-            }
-            .padding(16.dp)
+            .clickable { onClick(text); scope.launch { drawerState.close() } }
+            .padding(12.dp)
     )
 }
 
@@ -160,17 +137,18 @@ fun HomeScreen(onSelect: (String) -> Unit) {
         Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        repeat(2) { row ->
+        repeat(3) { row ->
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 repeat(2) { col ->
-                    val index = row * 2 + col
-                    val label = if (index == 0) "Shipment Scanning" else ""
-                    HomeTile(label, homeColors[index]) { if (label.isNotEmpty()) onSelect(label) }
+                    val idx = row * 2 + col
+                    val label = if (idx == 0) "Shipment Scanning" else ""
+                    HomeTile(label, homeColors[idx]) { if (label.isNotEmpty()) onSelect(label) }
                 }
             }
         }
@@ -178,25 +156,17 @@ fun HomeScreen(onSelect: (String) -> Unit) {
 }
 
 @Composable
-fun RowScope.HomeTile(label: String, color: Color, onClick: () -> Unit) {
+fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
     Box(
         Modifier
-            .weight(1f)
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(16.dp))
+            .size(80.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(color)
-            .clickable(enabled = label.isNotEmpty(), onClick = onClick),
+            .clickable(enabled = label.isNotEmpty()) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                color = Color.White,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(label, color = Color.White, fontSize = 12.sp, textAlign = TextAlign.Center)
         }
     }
 }
@@ -206,192 +176,165 @@ fun ScannerApp() {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
-    var scannedText by remember { mutableStateOf("") }
-    var hubName by remember { mutableStateOf("") }
-    var sackSorting by remember { mutableStateOf("") }
-    var osaLane by remember { mutableStateOf("") }
-    var lookupMap by remember { mutableStateOf(mapOf<Int, Triple<String, String, String>>()) }
-    var loading by remember { mutableStateOf(false) }
-    var isInvalid by remember { mutableStateOf(false) }
+    val scanned = remember { mutableStateOf("") }
+    val hub = remember { mutableStateOf("") }
+    val sack = remember { mutableStateOf("") }
+    val osa = remember { mutableStateOf("") }
+    val mapState = remember { mutableStateOf<Map<Int, Triple<String, String, String>>>(emptyMap()) }
+    val loading = remember { mutableStateOf(false) }
+    val invalid = remember { mutableStateOf(false) }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        val totalHeight = maxHeight
-
+    Box(Modifier.fillMaxSize().padding(8.dp)) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.height(totalHeight * 0.2f)
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Top: Hub & refresh
+            Column {
+                if (hub.value.isNotEmpty()) {
+                    Text(hub.value, fontSize = 16.sp, fontWeight = FontWeight.Normal)
+                }
+                Button(
+                    onClick = {
+                        loading.value = true
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val m = fetchHubMap()
+                            withContext(Dispatchers.Main) {
+                                mapState.value = m
+                                loading.value = false
+                                Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
+                                focusRequester.requestFocus()
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text("Refresh", fontSize = 16.sp)
+                }
+            }
+
+            // Middle: Sack & OSA side by side
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "Sack Segregation" to sack.value,
+                    "OSA Lane" to osa.value
+                ).forEach { (label, value) ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(getSackColor(value)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            Modifier.padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(label, fontSize = 10.sp)
+                            val resId = if (label.startsWith("Sack")) R.drawable.conveyor else R.drawable.pallet
+                            Image(
+                                painter = painterResource(resId),
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Bottom: Scan field
             OutlinedTextField(
-                value = scannedText,
-                onValueChange = { scannedText = it },
+                value = scanned.value,
+                onValueChange = {
+                    scanned.value = it
+                    if (invalid.value) invalid.value = false
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
                 singleLine = true,
+                textStyle = TextStyle(fontSize = 16.sp),
                 keyboardOptions = KeyboardOptions.Default.copy(
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done
                 ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (!loading) {
-                            try {
-                                val json = JSONObject(scannedText)
-                                val hubId = json.getInt("destination_hub_id")
-                                lookupMap[hubId]?.let { (name, sack, lane) ->
-                                    hubName = name
-                                    sackSorting = sack
-                                    osaLane = lane
-                                    isInvalid = false
-                                } ?: run {
-                                    hubName = ""
-                                    sackSorting = ""
-                                    osaLane = ""
-                                    isInvalid = true
-                                }
-                            } catch (_: Exception) {
-                                hubName = ""
-                                sackSorting = ""
-                                osaLane = ""
-                                isInvalid = true
-                            }
-                            scannedText = ""
-                            focusManager.clearFocus()
-                            CoroutineScope(Dispatchers.Main).launch {
-                                delay(300)
-                                focusRequester.requestFocus()
-                            }
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!loading.value) {
+                        try {
+                            val obj = JSONObject(scanned.value)
+                            val id = obj.getInt("destination_hub_id")
+                            mapState.value[id]?.let { (n, s, l) ->
+                                hub.value = n
+                                sack.value = s
+                                osa.value = l
+                                invalid.value = false
+                            } ?: run { invalid.value = true }
+                        } catch (_: Exception) {
+                            invalid.value = true
                         }
-                    }
-                ),
-                label = { Text(if (loading) "Loading... please wait" else "Scan shipment AWB label") },
-                enabled = !loading
-            )
-
-            Button(
-                onClick = {
-                    loading = true
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val updated = fetchHubMap()
-                        withContext(Dispatchers.Main) {
-                            lookupMap = updated
-                            loading = false
-                            Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
+                        scanned.value = ""
+                        focusManager.clearFocus()
+                        coroutineScope.launch {
+                            delay(200)
                             focusRequester.requestFocus()
                         }
                     }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                if (loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                else Text("Refresh Data", color = Color.White)
-            }
+                }),
+                label = { Text("Scan AWB", fontSize = 16.sp) },
+                enabled = !loading.value
+            )
         }
 
-        if (isInvalid) {
+        // Overlay error without hiding input
+        if (invalid.value) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.White.copy(alpha = 0.85f))
+                    .clickable { invalid.value = false },
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("❌", fontSize = 80.sp)
-                    Text("Invalid\nBarcode", fontSize = 40.sp, color = Color.Red, textAlign = TextAlign.Center)
-                }
-            }
-        } else if (hubName.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = totalHeight * 0.2f)
-            ) {
-                // Shipment Dest Hub Block
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(totalHeight * 0.2f)
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF999999)),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Shipment Dest Hub", fontSize = 16.sp)
-                        Text(hubName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                // Sack Segregation Block
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(totalHeight * 0.32f)
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(getSackColor(sackSorting)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        Modifier.fillMaxSize().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Sack Segregation", fontSize = 15.sp)
-                            Image(painter = painterResource(id = R.drawable.conveyor), contentDescription = null, modifier = Modifier.size(80.dp))
-                        }
-                        Text(sackSorting, fontSize = 48.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                // OSA Lane Block
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(totalHeight * 0.32f)
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(getSackColor(osaLane)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        Modifier.fillMaxSize().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("OSA Lane", fontSize = 15.sp)
-                            Image(painter = painterResource(id = R.drawable.pallet), contentDescription = null, modifier = Modifier.size(80.dp))
-                        }
-                        Text(osaLane, fontSize = 48.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Text("❌", fontSize = 40.sp)
+                    Text(
+                        "Invalid Barcode",
+                        fontSize = 14.sp,
+                        color = Color.Red,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
     }
 }
 
-fun fetchHubMap(): Map<Int, Triple<String, String, String>> =
-    try {
-        val json = URL(SHEET_ENDPOINT).readText()
-        val arr = JSONArray(json)
-        buildMap {
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                put(
-                    o.getInt("Shipment Destination Hub ID"),
-                    Triple(
-                        o.getString("Shipment Destination Hub Name"),
-                        o.getString("Sack Segregation"),
-                        o.getString("OSA lane")
-                    )
+fun fetchHubMap(): Map<Int, Triple<String, String, String>> = try {
+    val json = URL(SHEET_ENDPOINT).readText()
+    val arr = JSONArray(json)
+    buildMap {
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            put(
+                o.getInt("Shipment Destination Hub ID"),
+                Triple(
+                    o.getString("Shipment Destination Hub Name"),
+                    o.getString("Sack Segregation"),
+                    o.getString("OSA lane")
                 )
-            }
+            )
         }
-    } catch (e: Exception) {
-        Log.e("fetchHubMap", "Error: ${e.message}")
-        emptyMap()
     }
+} catch (e: Exception) {
+    Log.e("fetchHubMap", e.message ?: "")
+    emptyMap()
+}

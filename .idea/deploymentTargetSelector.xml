@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="CBYHelper.app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-06-10T07:48:49.746413200Z">
+        <DropdownSelection timestamp="2025-06-11T16:24:12.874594800Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\admin\.android\avd\Medium_Phone.avd" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\admin\.android\avd\Kaicom_K7_2.avd" />
             </handle>
           </Target>
         </DropdownSelection>
