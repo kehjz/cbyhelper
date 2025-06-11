@@ -14,8 +14,23 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.*
-import androidx.core.view.WindowCompat
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DrawerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,11 +48,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.example.cbyhelper.ui.theme.CBYHelperTheme
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+
 
 // ─────────────── Color Helpers ───────────────
 typealias SackCode = String
@@ -88,7 +105,7 @@ fun AppRoot() {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Text("CBY Helper", fontSize = 20.sp, modifier = Modifier.padding(16.dp))
+                Text("CBY Helper", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(16.dp))
                 Divider()
                 DrawerItem("Home", scope, drawerState) { selectedScreen = it }
                 DrawerItem("Shipment Scanning", scope, drawerState) { selectedScreen = it }
@@ -126,7 +143,7 @@ fun DrawerItem(
 ) {
     Text(
         text = text,
-        fontSize = 18.sp,
+        style = MaterialTheme.typography.bodyLarge,
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
@@ -140,23 +157,20 @@ fun DrawerItem(
 @Composable
 fun HomeScreen(onSelect: (String) -> Unit) {
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         repeat(2) { row ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                repeat(3) { col ->
-                    val index = row * 3 + col
+                repeat(2) { col ->
+                    val index = row * 2 + col
                     val label = if (index == 0) "Shipment Scanning" else ""
-                    HomeTile(label, homeColors[index]) {
-                        if (label.isNotEmpty()) onSelect(label)
-                    }
+                    HomeTile(label, homeColors[index]) { if (label.isNotEmpty()) onSelect(label) }
                 }
             }
         }
@@ -164,21 +178,24 @@ fun HomeScreen(onSelect: (String) -> Unit) {
 }
 
 @Composable
-fun HomeTile(label: String, color: Color, onClick: () -> Unit) {
+fun RowScope.HomeTile(label: String, color: Color, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .size(100.dp)
+        Modifier
+            .weight(1f)
+            .aspectRatio(1f)
             .clip(RoundedCornerShape(16.dp))
             .background(color)
-            .clickable(enabled = label.isNotEmpty()) { onClick() },
+            .clickable(enabled = label.isNotEmpty(), onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (label.isNotEmpty()) {
             Text(
                 text = label,
                 color = Color.White,
-                fontSize = 16.sp,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -289,11 +306,15 @@ fun ScannerApp() {
             }
         } else if (hubName.isNotEmpty()) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(top = totalHeight * 0.2f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = totalHeight * 0.2f)
             ) {
                 // Shipment Dest Hub Block
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.2f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(totalHeight * 0.2f)
                         .padding(8.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF999999)),
@@ -306,7 +327,9 @@ fun ScannerApp() {
                 }
                 // Sack Segregation Block
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.32f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(totalHeight * 0.32f)
                         .padding(8.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(getSackColor(sackSorting)),
@@ -326,7 +349,9 @@ fun ScannerApp() {
                 }
                 // OSA Lane Block
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(totalHeight * 0.32f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(totalHeight * 0.32f)
                         .padding(8.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(getSackColor(osaLane)),
