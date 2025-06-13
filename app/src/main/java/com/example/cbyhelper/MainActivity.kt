@@ -1,3 +1,4 @@
+// MainActivity.kt
 package com.example.cbyhelper
 
 import android.os.Bundle
@@ -25,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -193,6 +195,7 @@ fun ScannerApp(onBackToHome: () -> Unit) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
 
     val scanned = remember { mutableStateOf("") }
@@ -298,7 +301,6 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                 ),
                 keyboardActions = KeyboardActions(onDone = {
                     if (!loading.value) {
-                        // Pre-clear before processing
                         hub.value = ""
                         sack.value = ""
                         osa.value = ""
@@ -322,6 +324,7 @@ fun ScannerApp(onBackToHome: () -> Unit) {
 
                         scanned.value = ""
                         focusManager.clearFocus()
+                        keyboardController?.hide()
                         coroutineScope.launch {
                             delay(200)
                             focusRequester.requestFocus()
