@@ -1,4 +1,3 @@
-// MainActivity.kt
 package com.example.cbyhelper
 
 import android.os.Bundle
@@ -10,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -197,6 +197,7 @@ fun ScannerApp(onBackToHome: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
+    val interactionSource = remember { MutableInteractionSource() }
 
     val scanned = remember { mutableStateOf("") }
     val hub = remember { mutableStateOf("") }
@@ -300,39 +301,38 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = {
-                    if (!loading.value) {
-                        hub.value = ""
-                        sack.value = ""
-                        osa.value = ""
+                    hub.value = ""
+                    sack.value = ""
+                    osa.value = ""
 
-                        try {
-                            val obj = JSONObject(scanned.value)
-                            val id = obj.getInt("destination_hub_id")
-                            val result = mapState.value[id]
-                            if (result != null) {
-                                val (n, s, l) = result
-                                hub.value = n
-                                sack.value = s
-                                osa.value = l
-                                invalid.value = false
-                            } else {
-                                invalid.value = true
-                            }
-                        } catch (_: Exception) {
+                    try {
+                        val obj = JSONObject(scanned.value)
+                        val id = obj.getInt("destination_hub_id")
+                        val result = mapState.value[id]
+                        if (result != null) {
+                            val (n, s, l) = result
+                            hub.value = n
+                            sack.value = s
+                            osa.value = l
+                            invalid.value = false
+                        } else {
                             invalid.value = true
                         }
+                    } catch (_: Exception) {
+                        invalid.value = true
+                    }
 
-                        scanned.value = ""
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                        coroutineScope.launch {
-                            delay(200)
-                            focusRequester.requestFocus()
-                        }
+                    scanned.value = ""
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    coroutineScope.launch {
+                        delay(200)
+                        focusRequester.requestFocus()
                     }
                 }),
                 label = { Text("Scan AWB", fontSize = 10.sp) },
-                enabled = !loading.value
+                enabled = !loading.value,
+                interactionSource = interactionSource
             )
         }
 
