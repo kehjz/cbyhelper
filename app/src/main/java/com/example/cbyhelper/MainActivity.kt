@@ -1,3 +1,4 @@
+// MainActivity.kt
 package com.example.cbyhelper
 
 import android.os.Bundle
@@ -45,10 +46,10 @@ import java.net.URL
 typealias SackCode = String
 
 fun getSackColor(code: SackCode): Color = when (code.firstOrNull()) {
-    'A' -> Color(0xFFE69F00) // Orange
-    'B' -> Color(0xFF56B4E9) // Sky Blue
-    'C' -> Color(0xFF009E73) // Bluish Green
-    'D' -> Color(0xFFF0E442) // Yellow
+    'A' -> Color(0xFFE69F00)
+    'B' -> Color(0xFF56B4E9)
+    'C' -> Color(0xFF009E73)
+    'D' -> Color(0xFFF0E442)
     else -> Color(0xFF999999)
 }
 
@@ -207,6 +208,13 @@ fun ScannerApp(onBackToHome: () -> Unit) {
     val loading = remember { mutableStateOf(false) }
     val invalid = remember { mutableStateOf(false) }
 
+    // ✅ Focus and hide keyboard every time this screen is shown
+    LaunchedEffect(Unit) {
+        delay(200)
+        focusRequester.requestFocus()
+        keyboardController?.hide()
+    }
+
     BackHandler {
         if (invalid.value) {
             invalid.value = false
@@ -232,6 +240,7 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                                 loading.value = false
                                 Toast.makeText(context, "Data refreshed", Toast.LENGTH_SHORT).show()
                                 focusRequester.requestFocus()
+                                keyboardController?.hide()
                             }
                         }
                     },
@@ -325,9 +334,11 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                     scanned.value = ""
                     focusManager.clearFocus()
                     keyboardController?.hide()
+
                     coroutineScope.launch {
                         delay(200)
                         focusRequester.requestFocus()
+                        keyboardController?.hide()
                     }
                 }),
                 label = { Text("Scan AWB", fontSize = 10.sp) },
@@ -351,12 +362,7 @@ fun ScannerApp(onBackToHome: () -> Unit) {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("❌", fontSize = 40.sp)
-                    Text(
-                        "Invalid Barcode",
-                        fontSize = 14.sp,
-                        color = Color.Red,
-                        textAlign = TextAlign.Center
-                    )
+                    Text("Invalid Barcode", fontSize = 14.sp, color = Color.Red, textAlign = TextAlign.Center)
                 }
             }
         }
