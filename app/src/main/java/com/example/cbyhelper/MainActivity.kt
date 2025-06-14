@@ -43,6 +43,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 
+
 typealias SackCode = String
 
 fun getSackColor(code: SackCode): Color = when (code.firstOrNull()) {
@@ -200,7 +201,8 @@ fun ScannerApp(onBackToHome: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val interactionSource = remember { MutableInteractionSource() }
 
-    val scanned = remember { mutableStateOf("") }
+    val scanned = remember { mutableStateOf("") } // holds the real parsed input
+    val textFieldValue = remember { mutableStateOf("") } // shown in the UI
     val hub = remember { mutableStateOf("") }
     val sack = remember { mutableStateOf("") }
     val osa = remember { mutableStateOf("") }
@@ -208,7 +210,6 @@ fun ScannerApp(onBackToHome: () -> Unit) {
     val loading = remember { mutableStateOf(false) }
     val invalid = remember { mutableStateOf(false) }
 
-    // ✅ Focus and hide keyboard every time this screen is shown
     LaunchedEffect(Unit) {
         delay(200)
         focusRequester.requestFocus()
@@ -295,9 +296,9 @@ fun ScannerApp(onBackToHome: () -> Unit) {
             }
 
             OutlinedTextField(
-                value = scanned.value,
+                value = textFieldValue.value,
                 onValueChange = {
-                    scanned.value = it
+                    textFieldValue.value = it
                     if (invalid.value) invalid.value = false
                 },
                 modifier = Modifier
@@ -310,6 +311,9 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = {
+                    scanned.value = textFieldValue.value
+                    textFieldValue.value = "" // clear visible input
+
                     hub.value = ""
                     sack.value = ""
                     osa.value = ""
@@ -331,7 +335,6 @@ fun ScannerApp(onBackToHome: () -> Unit) {
                         invalid.value = true
                     }
 
-                    scanned.value = ""
                     focusManager.clearFocus()
                     keyboardController?.hide()
 
